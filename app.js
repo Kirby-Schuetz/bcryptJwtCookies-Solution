@@ -5,6 +5,9 @@ const { COOKIE_SECRET } = require('./secrets')
 
 const { authRequired } = require('./api/utils')
 
+const client = require('./db/client')
+client.connect()
+
 require('dotenv').config()
 
 const app = express()
