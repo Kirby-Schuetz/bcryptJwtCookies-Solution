@@ -1,86 +1,94 @@
 const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
-const authRouter = require('express').Router()
 const { createUser, getUserByUsername } = require('../db/helpers/users')
-const { JWT_SECRET, COOKIE_SECRET } = require('../secrets')
+const jwt = require('jsonwebtoken')
+const { JWT_SECRET } = require('../secrets')
+
+const router = require('express').Router()
+
 const SALT_ROUNDS = 10
 
-authRouter.get('/', async (req, res, next) => {
-  try {
-      console.log('HEY! I am in your terminal!')
-      res.send('WOW! A thing in your response!')
-  } catch (error) {
-      next(error)
-  }
-})
-
-authRouter.post('/register', async (req, res, next) => {
-  try {
-    console.log(req.body)
-    const { username, password } = req.body
-    console.log(typeof password)
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS)
-    console.log(hashedPassword)
-    const user = await createUser({ username, password: hashedPassword })
-    console.log(user)
-    delete user.password
-
-    const token = jwt.sign(user, JWT_SECRET)
-
-    res.cookie('token', token, {
-      sameSite: 'strict',
-      httpOnly: true,
-      signed: true,
-    })
-
-    delete user.password
-
-    res.send({ user })
-  } catch (error) {
-    next(error)
-  }
-})
-
-authRouter.post('/login', async (req, res, next) => {
-  try {
-    const { username, password } = req.body
-    console.log({ username, password })
-    const user = await getUserByUsername(username)
-    console.log(user)
-    const validPassword = await bcrypt.compare(password, user.password)
-
-    if (validPassword) {
-      const token = jwt.sign(user, JWT_SECRET)
-
-      res.cookie('token', token, {
-        sameSite: 'strict',
-        httpOnly: true,
-        signed: true,
-      })
-
-      delete user.password
-
-      res.send({ user })
+router.get('/', async (req, res, next) => {
+    try {
+        res.send('WOW! A thing!')
+    } catch (error) {
+        next(error)
     }
-  } catch (error) {
-    next(error)
-  }
 })
 
-authRouter.post('/logout', async (req, res, next) => {
-  try {
-    res.clearCookie('token', {
-      sameSite: 'strict',
-      httpOnly: true,
-      signed: true,
-    })
-    res.send({
-      loggedIn: false,
-      message: 'Logged Out',
-    })
-  } catch (error) {
-    next(error)
-  }
+router.post('/register', async (req, res, next) => {
+    try {
+        console.log(req.body)
+        const { username, password } = req.body
+        //hashing the password
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS)
+        //sending username and hashed pw to database
+        const user = await createUser({ username, password: hashedPassword })
+        //removing password from user object for security reasons
+        delete user.password
+
+        //creating our token
+        const token = jwt.sign(user, JWT_SECRET)
+
+        //attaching a cookie to our response using the token that we created
+        res.cookie('token', token, {
+            sameSite: 'strict',
+            httpOnly: true,
+            signed: true
+        })
+
+        delete user.password
+        // console.log(res)
+
+        res.send({user})
+
+    } catch(error) {
+        next(error)
+    }
 })
 
-module.exports = authRouter
+router.post('/login', async (req, res, next) => {
+    try {
+        console.log(req.body)
+        const { username, password } = req.body
+        const user = await getUserByUsername(username)
+        console.log(user)
+
+        const validPassword = await bcrypt.compare(password, user.password)
+
+        delete user.password
+        if (validPassword) {
+            //creating our token
+            const token = jwt.sign(user, JWT_SECRET)
+            //attaching a cookie to our response using the token that we created
+            res.cookie('token', token, {
+                sameSite: 'strict',
+                httpOnly: true,
+                signed: true
+            })
+
+            delete user.password
+            res.send({user})
+        }
+
+    } catch(error) {
+        next(error)
+    }
+})
+
+router.post('/logout', async (req, res, next) => {
+    try {
+        res.clearCookie('token', {
+            sameSite: 'strict',
+            httpOnly: true,
+            signed: true
+        })
+        res.send({ 
+            loggedIn: false,
+            message: 'Logged Out'
+        })
+    } catch(error) {
+        next(error)
+    }
+})
+
+module.exports = router
